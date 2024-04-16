@@ -3,7 +3,8 @@
 #include <stack>
 #include <unistd.h>
 #include <thread>
-
+#include <chrono>
+#include <mutex>
 using namespace std;
 
 // Matriz de char representnado o labirinto
@@ -12,6 +13,11 @@ char** maze; // Voce também pode representar o labirinto como um vetor de vetor
 // Numero de linhas e colunas do labirinto
 int num_rows;
 int num_cols;
+
+bool retorno_walk = false;
+int contador = 0;
+
+int tempo_intervalo = 250;
 
 // Representação de uma posição
 struct pos_t {
@@ -83,141 +89,155 @@ pos_t load_maze(const char* file_name) {
 	return initial_pos;
 }
 
-// Função que imprime o labirinto
-void print_maze() {
+int verificar_o_em_matriz(){
+	contador = 0;
+
 	for (int i = 0; i < num_rows; ++i) {
 		for (int j = 0; j < num_cols; ++j) {
-			printf("%c", maze[i][j]);
+			if(maze[i][j] == 'o') contador++;
 		}
-		printf("\n");
+	}
+	return contador;
+}
+
+
+// Função que imprime o labirinto
+void print_maze() {
+	while(true){
+		contador = 0;
+
+		for (int i = 0; i < num_rows; ++i) {
+			for (int j = 0; j < num_cols; ++j) {
+				if(maze[i][j] == 'o') contador++;
+				printf("%c", maze[i][j]);
+			}
+			printf("\n");
+		}
+		//printf("\ncontador: %d\n", contador);
+		//printf("retorno: %d\n", retorno_walk);
+
+		for(int k = 0; k < 4; k++){
+			contador = verificar_o_em_matriz();
+		}
+
+		if(retorno_walk) return;
+		if(contador == 0 && retorno_walk == false) return;
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(tempo_intervalo));
+		system("clear");
 	}
 }
 
 
 // Função responsável pela navegação.
 // Recebe como entrada a posição initial e retorna um booleando indicando se a saída foi encontrada
-bool walk(pos_t pos) {
-	
+void walk(pos_t pos) {
+	if(retorno_walk){
+		return;
+	}
 
+	maze[pos.i][pos.j] = 'o';
+	std::this_thread::sleep_for(std::chrono::milliseconds(tempo_intervalo));
 	// Repita até que a saída seja encontrada ou não existam mais posições não exploradas
-	
-		// Marcar a posição atual com o símbolo '.'
-		maze[pos.i][pos.j] = 'o';
-		// Limpa a tela
 		
-		system("clear");
-		
-		// Imprime o labirinto
-		print_maze();
-		//sleep(0.5);
-		std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-		/* Dado a posição atual, verifica quais sao as próximas posições válidas
-			Checar se as posições abaixo são validas (i>0, i<num_rows, j>0, j <num_cols)
-		 	e se são posições ainda não visitadas (ou seja, caracter 'x') e inserir
-		 	cada uma delas no vetor valid_positions
-		 		- pos.i, pos.j+1
-		 		- pos.i, pos.j-1
-		 		- pos.i+1, pos.j
-		 		- pos.i-1, pos.j
-		 	Caso alguma das posiçÕes validas seja igual a 's', retornar verdadeiro
-	 	*/
-	 	
 		if(pos.i >= 0 && pos.i < num_rows && pos.j >= 0 && pos.j < num_cols){
 			if(pos.j + 1 < num_cols){
 				if(maze[pos.i][pos.j+1] == 's'){
-					return true;
+					retorno_walk = true;
 				}else if(maze[pos.i][pos.j + 1] == 'x'){
 					pos_t next_pos;
 					next_pos.i = pos.i;
 					next_pos.j = pos.j + 1;
-					valid_positions.push(next_pos);
+					//valid_positions.push(next_pos);
+					std::thread t(walk, next_pos);
+					t.detach();
 				}
 			}
 			if(pos.j - 1 >= 0){
 				if(maze[pos.i][pos.j-1] == 's'){
-					return true;
+					retorno_walk =  true;
 				}else if(maze[pos.i][pos.j-1] == 'x'){
 					pos_t next_pos;
 					next_pos.i = pos.i;
 					next_pos.j = pos.j - 1;
-					valid_positions.push(next_pos);
+					//valid_positions.push(next_pos);
+					std::thread t(walk, next_pos);
+					t.detach();
 				}
 			}
 			if(pos.i + 1 < num_rows){
 				if(maze[pos.i +1][pos.j] == 's'){
-					return true;
+					retorno_walk =  true;
 				}else if(maze[pos.i + 1][pos.j] == 'x'){
 					pos_t next_pos;
 					next_pos.i = pos.i + 1;
 					next_pos.j = pos.j;
-					valid_positions.push(next_pos);
+					//valid_positions.push(next_pos);
+					std::thread t(walk, next_pos);
+					t.detach();
 				}
 			}
 			if(pos.i - 1 >= 0){
 				if(maze[pos.i -1][pos.j] == 's'){
-					return true;
+					retorno_walk =  true;
 				}else if(maze[pos.i - 1][pos.j] == 'x'){
 					pos_t next_pos;
 					next_pos.i = pos.i - 1;
 					next_pos.j = pos.j;
-					valid_positions.push(next_pos);
+					//valid_positions.push(next_pos);
+					std::thread t(walk, next_pos);
+					t.detach();
 				}
 			}
 		}
 
-
-		
-		// Verifica se a pilha de posições nao esta vazia 
-		//Caso não esteja, pegar o primeiro valor de  valid_positions, remove-lo e chamar a funçao walk com esse valor
-		// Caso contrario, retornar falso
 		maze[pos.i][pos.j] = '.';
-		if (!valid_positions.empty()) {
-			pos_t next_position;
-			while(true){
-				if(valid_positions.size() == 0){
-					return false;
-				}
-				next_position = valid_positions.top();
-				valid_positions.pop();
-				if(maze[next_position.i][next_position.j] != '.'){
-					break;
-				}
-			}
-			return walk(next_position);
-		}
 
-	
-		
-	return false;
 }
 
 int main(int argc, char* argv[]) {
 	
 	if(argv[1] != nullptr){		
-		// const char * nome_do_arquivo = "../data/maze2.txt";
-		// std::cout << nome_do_arquivo << std::endl;
-		// carregar o labirinto com o nome do arquivo recebido como argumento
-		// pos_t initial_pos = load_maze(nome_do_arquivo);
+		//const char * nome_do_arquivo = "../data/maze2.txt";
+		//std::cout << nome_do_arquivo << std::endl;
+		//pos_t initial_pos = load_maze(nome_do_arquivo);
+		
+		//carregar o labirinto com o nome do arquivo recebido como argumento
+		printf("nome do arquivo: ");
+		printf("%s", argv[1]);
 		pos_t initial_pos = load_maze(argv[1]);
 
-		printf("Posição inicial: %d %d\n", initial_pos.i, initial_pos.j);
-		//print_maze();
+		if(maze != nullptr){
+			printf("Posição inicial: %d %d\n", initial_pos.i, initial_pos.j);
+			std::thread printThread(print_maze);
+			
+			walk(initial_pos);
 
-		// chamar a função de navegação
-		bool exit_found = walk(initial_pos);
 
-		// Tratar o retorno (imprimir mensagem)
-		if(exit_found){
-			system("clear");	
-			print_maze();
+			
+			while(true){
+				if(retorno_walk){
+					break;
+				}
+				if(!retorno_walk and contador==0){//Não encontrou a saída e acabou as threads
+					break;
+				}
+			}
 
-			printf("\n\nA saida foi encontrada\n\n");
-		}else{
-			printf("\n\nA saida NÃO foi encontrada\n\n");
+			printThread.join();
+
+			
+			if(retorno_walk){
+				printf("\n\nA saida foi encontrada\n\n");
+				return 0;
+			}
+			if(!retorno_walk and contador==0){//Não encontrou a saída e acabou as threads
+				printf("\n\nA saida NÃO foi encontrada\n\n");
+				return 0;
+			}
+			
 		}
 	}
 
-	
 	return 0;
 }
